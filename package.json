@@ -1,10 +1,12 @@
 {
   "name": "nodejs-practice",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "A TypeScript-first Node.js learning workspace",
+  "private": true,
+  "type": "module",
   "scripts": {
-    "start": "tsx"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test"
   },
   "keywords": [],
   "author": "",
