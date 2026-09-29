@@ -114,8 +114,8 @@
 
 ## Sources
 
-1. [Level 3: Parallelism and Processes](../../../FUNDAMENTALS_PRACTICE.md#parallelism-and-processes) — Established the seven repository outcomes this guide must cover.
-2. [Concurrency workspace guidance](../README.md) — Established the local placement, small-demo convention, and need to flag intentional hangs or leaks.
+1. [Level 3: Parallelism and Processes](../../FUNDAMENTALS_PRACTICE.md#parallelism-and-processes) — Established the seven repository outcomes this guide must cover.
+2. [Concurrency workspace guidance](./README.md) — Established the local placement, small-demo convention, and need to flag intentional hangs or leaks.
 3. [Node.js 22 worker threads](https://nodejs.org/docs/latest-v22.x/api/worker_threads.html) — Established worker suitability for CPU-intensive JavaScript, lifecycle events, cloning/transfer behavior, memory-sharing options, and the recommendation to reuse workers.
 4. [Node.js 22 child processes](https://nodejs.org/docs/latest-v22.x/api/child_process.html) — Established API selection, stdio behavior, IPC, abort support, shell risk, and exit/close semantics.
 5. [Node.js 22 process API](https://nodejs.org/docs/latest-v22.x/api/process.html) — Established process lifecycle, signals, IPC messages, exit behavior, and active-resource diagnostics.

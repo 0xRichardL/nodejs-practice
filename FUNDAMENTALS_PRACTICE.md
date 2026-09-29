@@ -177,10 +177,10 @@ without relying on a finished solution.
 
 ### Parallelism and Processes
 
-- [ ] Explain concurrency versus parallelism in Node.js
-- [ ] Use worker threads for CPU-bound work
-- [ ] Transfer data and communicate through message ports
-- [ ] Explain structured cloning and transferable objects
+- [x] Explain concurrency versus parallelism in Node.js
+- [x] Use worker threads for CPU-bound work
+- [x] Transfer data and communicate through message ports
+- [x] Explain structured cloning and transferable objects
 - [ ] Start and manage child processes
 - [ ] Handle child-process standard streams and exit status
 - [ ] Choose between the main thread, workers, and child processes

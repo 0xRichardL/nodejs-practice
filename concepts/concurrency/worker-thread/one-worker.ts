@@ -8,11 +8,13 @@ async function measure(
 ): Promise<void> {
   let ticks = 0
   const interval = setInterval(() => ticks++, 100)
-  const start = Date.now()
   try {
+    const start = performance.now()
     const result = await task()
-    console.log(`${label}; result: ${result}; elapsed time: ${Date.now() - start}; tick count: ${ticks}`)
-  } catch (err) {
+    const elapsedMs = performance.now() - start
+    console.log("result:", result);
+    console.log(`time elapsed: ${elapsedMs}ms`);
+    console.log(`ticks: ${ticks}`);  } catch (err) {
     console.error(`${label}; error: ${err}`)
   }
   finally {

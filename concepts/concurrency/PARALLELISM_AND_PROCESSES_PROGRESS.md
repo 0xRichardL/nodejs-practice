@@ -1,7 +1,7 @@
 # Learning Progress: Node.js Parallelism and Processes
 
-> Guide: [GUIDE.md](./GUIDE.md)
-> Last updated: 2026-09-27 14:35 +07
+> Guide: [PARALLELISM_AND_PROCESSES_GUIDE.md](./PARALLELISM_AND_PROCESSES_GUIDE.md)
+> Last updated: 2026-09-27 18:27 +07
 
 ## Status
 
@@ -10,7 +10,7 @@
 | Overall status | in progress |
 | Accumulated reported active time | 0 minutes |
 | Current unit | LG-04 — Earn parallel speedup with bounded workers |
-| Next action | Predict responsiveness and likely overhead for sequential CPU tasks, one new worker per task, and a small reused worker set before measuring. |
+| Next action | Implement a fixed two-worker dispatcher for the same Fibonacci batch; preserve result order with task IDs and measure startup, messages, and timer responsiveness. |
 
 ## Unit checklist
 
@@ -29,6 +29,8 @@ Use only `not started`, `in progress`, `completed`, `blocked`, or `deferred`. Ch
 
 ### Last demonstrated evidence
 
+- LG-04: Implemented one new worker per input with `Promise.all()`. After awaiting the baseline and worker measurements sequentially, a local run returned identical ordered results: main thread about 1568 ms with 0 ticks; eight fresh workers about 599 ms with 54 ticks. `pnpm typecheck` passed. Correctly identified that the batch timing does not isolate each worker's startup/compute overhead.
+- LG-04 (in progress): Implemented a sequential baseline for inputs `[35, 36, 37, 38, 35, 36, 37, 38]`. Results were `[9227465, 14930352, 24157817, 39088169, 9227465, 14930352, 24157817, 39088169]`; reported elapsed time was about 1561 ms with zero 10 ms interval ticks. A local run before the final output change took about 1717 ms, showing run-to-run variation; `pnpm typecheck` passed. Correctly retrieved that `Promise.all([p0, p1])` preserves input order even if `p1` settles first, while appending on completion records completion order.
 - LG-03: Implemented and ran `message-passing/typed-array-transfer.ts`. The receiver retained `[30, 40]` in a new typed-array view with a distinct buffer object; the sender's view and buffer both reported `byteLength === 0` immediately after posting. Explained that transfer is preferable when copying a large buffer is costly and the sender no longer needs access. `pnpm typecheck` passed.
 - LG-03: Implemented `message-passing/typed-array-copy.ts`; a passing run showed the receiver retained `[10, 20]` after the sender changed its array to `[99, 20]`, with distinct backing buffers and both ports closed.
 - LG-03: Correctly predicted that `port2.postMessage(() => 1)` throws synchronously on the sender and sends no message. Implemented `message-passing/clone-failure.ts` with `assert.throws(..., { name: "DataCloneError" })`, explicit port cleanup, and a passing run.
@@ -39,6 +41,8 @@ Use only `not started`, `in progress`, `completed`, `blocked`, or `deferred`. Ch
 
 ### Recent misconceptions or fragile knowledge
 
+- LG-04: Initially called two async `measure()` functions without awaiting them, so the baseline's `await` yielded and the fresh workers began starting before its end timestamp. Corrected by awaiting the measurements in sequence. In the pool design, initially treated `nextId === inputs.length` as completion; corrected that it only means every task was dispatched. `results.push()` would record completion order, so store by task ID. `Worker` uses `terminate()`, not `close()`.
+- LG-04: Initially expected `Promise.all()` results to follow worker completion order; corrected that it stores each result at its input promise's index. A separate shared array populated with `push()` follows completion order. The initial prediction exercise did not specify hardware bounds; the learner reasonably assumed unlimited parallel resources, so distinguish that idealized model from the measured eight-slot machine.
 - LG-03: Initially expected transfer to preserve the same JavaScript `ArrayBuffer` object identity. A local check showed the sender keeps its original detached buffer object, while the receiver gets a distinct buffer object containing the transferred bytes. Also distinguished transfer from sharing a buffer through two same-thread views.
 - LG-03: Initially thought a received clone could keep the source object's identity, and that two properties pointing to one source object would become two separate clones. Corrected both with `MessageChannel` reasoning and a passing graph test. Most recently predicted that the cloned `Counter` would not have `Object.prototype`; retrieve that it becomes a plain object with `Object.prototype`.
 - Initially treated promise microtasks as a way for CPU work to run after a timer; corrected to the rule that promise callbacks still run on the main JavaScript thread and drain before timers.
@@ -48,15 +52,17 @@ Use only `not started`, `in progress`, `completed`, `blocked`, or `deferred`. Ch
 
 ### Incomplete knowledge or work
 
-- LG-03 is complete. LG-04 has not yet produced measurements; sequential, per-task worker, and reused-worker comparisons remain.
+- LG-03 is complete. LG-04 has sequential and fresh-worker measurements. A bounded reused-worker measurement, result correlation under out-of-order completion, a tiny-versus-coarse comparison, and a break-even explanation remain.
 
 ### Open questions
 
 - For a batch of CPU tasks, when does worker startup and messaging cost outweigh parallel execution?
 - How many workers should be reused for the measured machine and workload?
+- How will a reused worker correlate multiple task responses when completion order differs from submission order?
 
 ### Retrieval prompts
 
+- Why does `Promise.all(inputs.map(runInWorker))` preserve input order even when workers finish out of order?
 - Why does `received.buffer !== array.buffer` hold for both cloning and transfer, and which observation proves transfer?
 - What does each end of a `MessageChannel` do, and does creating one create a thread?
 - Which identities inside a cyclic object graph survive cloning, and which identities across the channel do not?
@@ -66,13 +72,15 @@ Use only `not started`, `in progress`, `completed`, `blocked`, or `deferred`. Ch
 
 ### Exact re-entry prompt
 
-> Before coding LG-04, predict which of three CPU batch strategies—sequential main-thread execution, one new worker per task, or a small reused worker set—keeps the main thread responsive and which might be fastest for tiny versus coarse tasks. Explain the costs behind each prediction.
+> Implement a separate fixed two-worker run for the same eight Fibonacci inputs. Each worker should accept repeated `{ id, n }` messages and reply `{ id, result }`; the parent should assign the next task only when a worker returns, store `results[id]`, count completed results separately from dispatched tasks, and terminate workers after all results. Measure results, elapsed time, and timer ticks against the sequential and fresh-worker runs.
 
 ## Adaptations
 
 - LG-03: Added a focused `MessageChannel` mini-lesson before the hands-on clone/transfer exercise because the API had not yet been introduced.
 - LG-03: Kept the learner's graph-cloning demo as a standalone reminder by renaming `message-passing/main.ts` to `message-passing/graph-cloning.ts`; started a separate `message-passing/class-instance.ts` file for the class exercise at the learner's request.
 - LG-03 took longer than the initial estimate because the learner worked through transfer ownership and reconstructed object identity in detail. LG-04 starts with the remaining time in the current session; its measurements may continue in the next session.
+- LG-04: The initial theory prompt left hardware limits unspecified. Accepted the learner's unlimited-resource interpretation, then separated it from the real-machine measurement using `os.availableParallelism() === 8`. Stopped after the sequential baseline and result-order reasoning to fit the session budget.
+- LG-04: The learner requested a direct code pattern for the fixed dispatcher after discussing the design. Provide a small concrete example; do not add a generic pool framework.
 
 ## Session log
 
@@ -119,3 +127,25 @@ Use only `not started`, `in progress`, `completed`, `blocked`, or `deferred`. Ch
 - Unresolved work: Demonstrate explicit `ArrayBuffer` transfer and sender detachment, then explain when transfer is preferable. LG-03 mastery evidence is not yet complete.
 - Research notes: Used the guide's official Node.js 22 messaging references and verified behavior on the installed Node.js 22 runtime. `pnpm tsx` required the previously approved sandbox escalation to create its local IPC socket. Session wall time was about 55 minutes at closing; actual active-learning time was not reported.
 - Next prompt: Create `message-passing/typed-array-transfer.ts`, send `[30, 40]` with its buffer in the transfer list, prove both sender `byteLength` values become zero, and explain when transfer is preferable to copying.
+
+### Session 5 — 2026-09-27
+
+- Planned time: 3 hours
+- Actual active time: not reported
+- Units worked: Completed LG-03; started LG-04
+- Learner evidence: Transfer demo passed with sender detachment and receiver values; explained the copy-versus-transfer trade-off. Built a correct sequential Fibonacci batch baseline with ordered results, about 1561 ms elapsed, and zero timer ticks; `pnpm typecheck` passed. Corrected and applied the distinction between `Promise.all()` input order and pushing results in completion order.
+- Misconceptions or uncertainty: Expected transfer to preserve the JavaScript buffer object's identity, and initially expected `Promise.all()` to return worker results in completion order. Both were corrected with small local demonstrations. The first parallelism prediction assumed unlimited resources because the prompt omitted a hardware bound.
+- Unresolved work: New worker per task, a small reused worker set, measurements under both coarse and tiny task sizes, out-of-order result handling, and break-even reasoning remain for LG-04.
+- Research notes: Checked the official Node.js 22 worker-thread and `os.availableParallelism()` documentation. Local `os.availableParallelism()` returned 8. Session wall time was about 2 hours 45 minutes at closing; actual active-learning time was not reported.
+- Next prompt: Add one new worker per Fibonacci input in `worker-thread/bounded-workers.ts`, measure the same eight-input batch including startup, verify `Promise.all()` results against the sequential baseline, and record elapsed time plus timer ticks.
+
+### Session 6 — 2026-09-27
+
+- Planned time: 30 minutes
+- Actual active time: not reported
+- Units worked: LG-04 (in progress)
+- Learner evidence: Implemented eight fresh workers and corrected sequential `await` of the two measurements. A local run returned the same ordered results for both approaches: main thread about 1568 ms/0 ticks and fresh workers about 599 ms/54 ticks; type checking passed. Identified that end-to-end timing does not isolate each worker's overhead and that the parent should own the next-task index.
+- Misconceptions or uncertainty: Initially equated all tasks dispatched with all results completed, proposed appending results in completion order, and used `worker.close()` in pseudocode. Corrected to separate `nextId` from completed count, store by ID, and use `terminate()`.
+- Unresolved work: Fixed reused-worker implementation and measurement, tiny-task comparison, and break-even explanation remain. The learner requested the common code pattern before implementing it.
+- Research notes: Used the guide's Node.js 22 worker lifecycle and messaging references. Local measurements included worker startup and messaging. Actual active time was not reported; the later wall-clock gap is not treated as active time.
+- Next prompt: Use the fixed two-worker message dispatcher pattern supplied in the conversation; implement and measure it on the same batch, verify ordered results, and compare its timer ticks and elapsed time with the two existing strategies.
